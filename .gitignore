@@ -1,0 +1,23 @@
+# --- Python Standard ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Virtuelle Umgebung ---
+venv/
+env/
+
+# --- Umgebungsvariablen ---
+.env
+
+# --- VSCode oder andere IDE-Dateien ---
+.vscode/
+.idea/
+
+# --- Systemdateien (Windows, macOS etc.) ---
+.DS_Store
+Thumbs.db
+
+# --- Sonstige temporäre Dateien ---
+*.log
