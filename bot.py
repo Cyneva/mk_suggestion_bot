@@ -1,4 +1,4 @@
-# bot.py
+   # bot.py
 import os
 import json
 import asyncio
@@ -10,25 +10,20 @@ from aiohttp import web
 TOKEN = os.getenv("DISCORD_TOKEN")
 DATA_FILE = "suggestions_data.json"
 
-# --- Webserver for Railway keep-alive ---
-async def handle(request):
-    return web.Response(text="OK")
-
+# --- Keep-alive Webserver for Railway ---
 async def start_webserver():
     app = web.Application()
-    app.add_routes([web.get("/", handle)])
+    app.add_routes([web.get("/", lambda request: web.Response(text="OK"))])
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", 8080)
     await site.start()
     print("✅ Keep-alive webserver running on port 8080")
 
-asyncio.get_event_loop().create_task(start_webserver())
+asyncio.run(start_webserver())
 
 # --- Bot Setup ---
 intents = discord.Intents.default()
-intents.guilds = True
-intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
@@ -46,7 +41,6 @@ def save_data(data):
 
 data = load_data()
 
-# --- Helper: Initialize Guild Data ---
 def ensure_guild_data(guild_id):
     if str(guild_id) not in data:
         data[str(guild_id)] = {
@@ -88,8 +82,7 @@ class SuggestionModal(discord.ui.Modal, title="Submit a Suggestion"):
         guild_data["next_id"] += 1
 
         staff_msg = await staff_channel.send(
-            f"New suggestion (ID {suggestion_id}) from {interaction.user.mention}:\n"
-            f"> {self.suggestion_text.value}"
+            f"New suggestion (ID {suggestion_id}) from {interaction.user.mention}:\n> {self.suggestion_text.value}"
         )
 
         guild_data["pending"][str(suggestion_id)] = {
@@ -107,12 +100,11 @@ class SuggestionButtonView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Create Suggestion", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Make suggestion", style=discord.ButtonStyle.primary)
     async def create_suggestion(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(SuggestionModal())
 
 # --- Slash Commands ---
-
 @tree.command(name="setup_suggestion_channel", description="Setup a channel for suggestions.")
 @app_commands.checks.has_permissions(manage_guild=True)
 @app_commands.describe(channel_type="Type of channel to set up (staff, public, suggestions)")
@@ -160,11 +152,15 @@ async def approve_suggestion(interaction: discord.Interaction, suggestion_id: in
         await interaction.response.send_message("Public channel not found.", ephemeral=True)
         return
 
-    public_msg = await public_channel.send(
-        f"Suggestion #{suggestion_id}:\n{info['text']}"
+    embed = discord.Embed(
+        title=f"Suggestion #{suggestion_id}",
+        description=info["text"],
+        color=discord.Color.blue()
     )
-    await public_msg.add_reaction("👍")
-    await public_msg.add_reaction("👎")
+    embed.set_footer(text="React with ✅ or ❌")
+    public_msg = await public_channel.send(embed=embed)
+    await public_msg.add_reaction("✅")
+    await public_msg.add_reaction("❌")
 
     try:
         user = await interaction.client.fetch_user(info["author_id"])
@@ -213,14 +209,20 @@ async def pending_suggestions(interaction: discord.Interaction):
         await interaction.response.send_message("There are no pending suggestions.", ephemeral=True)
         return
 
-    text = ""
-    for sid, info in list(pending.items())[:15]:
-        snippet = info["text"]
-        if len(snippet) > 150:
-            snippet = snippet[:147] + "..."
-        text += f"ID {sid}: from <@{info['author_id']}> — {snippet}\n"
+    embed = discord.Embed(
+        title="Pending Suggestions",
+        color=discord.Color.orange()
+    )
 
-    await interaction.response.send_message(text, ephemeral=True)
+    for sid, info in sorted(pending.items(), key=lambda x: int(x[0])):
+        member = interaction.guild.get_member(info["author_id"])
+        name = member.display_name if member else f"User ID {info['author_id']}"
+        snippet = info["text"]
+        if len(snippet) > 200:
+            snippet = snippet[:197] + "..."
+        embed.add_field(name=f"#{sid} — from {name}", value=snippet, inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # --- Bot Events ---
 @bot.event
