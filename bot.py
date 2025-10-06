@@ -1,4 +1,4 @@
- # bot.py
+# bot.py
 import os
 import json
 import asyncio
@@ -55,7 +55,7 @@ class SuggestionModal(discord.ui.Modal, title="Submit a Suggestion"):
     suggestion_text = discord.ui.TextInput(
         label="Your Suggestion",
         style=discord.TextStyle.paragraph,
-        placeholder="Write your suggestion here...",
+        placeholder="your suggestion",
         required=True,
         max_length=1000
     )
@@ -159,7 +159,7 @@ async def approve_suggestion(interaction: discord.Interaction, suggestion_id: in
         return
 
     embed = discord.Embed(
-        title=f"Suggestion #{public_id}",  # öffentliche ID
+        title=f"Suggestion #{public_id}",
         description=info["text"],
         color=discord.Color.blue()
     )
@@ -169,7 +169,7 @@ async def approve_suggestion(interaction: discord.Interaction, suggestion_id: in
 
     try:
         user = await interaction.client.fetch_user(info["author_id"])
-        await user.send("Your suggestion was approved and posted publicly.")  # ohne Staff-ID
+        await user.send(f"Your suggestion was approved: {public_msg.jump_url}")
     except Exception:
         pass
 
@@ -211,7 +211,7 @@ async def pending_suggestions(interaction: discord.Interaction):
     pending = guild_data["pending"]
 
     if not pending:
-        await interaction.response.send_message("There are no pending suggestions.", ephemeral=True)
+        await interaction.response.send_message("There are no pending suggestions.", ephemeral=False)
         return
 
     embed = discord.Embed(
@@ -227,7 +227,7 @@ async def pending_suggestions(interaction: discord.Interaction):
             snippet = snippet[:197] + "..."
         embed.add_field(name=f"#{sid} — from {name}", value=snippet, inline=False)
 
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, ephemeral=False)
 
 # --- Bot Events ---
 @bot.event
