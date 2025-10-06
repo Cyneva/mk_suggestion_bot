@@ -1,4 +1,4 @@
-   # bot.py
+ # bot.py
 import os
 import json
 import asyncio
@@ -46,7 +46,8 @@ def ensure_guild_data(guild_id):
         data[str(guild_id)] = {
             "channels": {"staff": None, "public": None, "suggestions": None},
             "pending": {},
-            "next_id": 1
+            "next_staff_id": 1,
+            "next_public_id": 1
         }
 
 # --- UI Components ---
@@ -78,8 +79,8 @@ class SuggestionModal(discord.ui.Modal, title="Submit a Suggestion"):
             )
             return
 
-        suggestion_id = guild_data["next_id"]
-        guild_data["next_id"] += 1
+        suggestion_id = guild_data["next_staff_id"]
+        guild_data["next_staff_id"] += 1
 
         staff_msg = await staff_channel.send(
             f"New suggestion (ID {suggestion_id}) from {interaction.user.mention}:\n> {self.suggestion_text.value}"
@@ -142,6 +143,11 @@ async def approve_suggestion(interaction: discord.Interaction, suggestion_id: in
     info = pending.pop(str(suggestion_id))
     save_data(data)
 
+    # öffentliche ID nur für genehmigte Vorschläge
+    public_id = guild_data.get("next_public_id", 1)
+    guild_data["next_public_id"] = public_id + 1
+    save_data(data)
+
     public_channel_id = guild_data["channels"]["public"]
     if not public_channel_id:
         await interaction.response.send_message("Public channel not set up.", ephemeral=True)
@@ -153,18 +159,17 @@ async def approve_suggestion(interaction: discord.Interaction, suggestion_id: in
         return
 
     embed = discord.Embed(
-        title=f"Suggestion #{suggestion_id}",
+        title=f"Suggestion #{public_id}",  # öffentliche ID
         description=info["text"],
         color=discord.Color.blue()
     )
-    embed.set_footer(text="React with ✅ or ❌")
     public_msg = await public_channel.send(embed=embed)
     await public_msg.add_reaction("✅")
     await public_msg.add_reaction("❌")
 
     try:
         user = await interaction.client.fetch_user(info["author_id"])
-        await user.send(f"Your suggestion (ID {suggestion_id}) was approved and posted in {public_channel.mention}.")
+        await user.send("Your suggestion was approved and posted publicly.")  # ohne Staff-ID
     except Exception:
         pass
 
